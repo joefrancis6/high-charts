@@ -1,4 +1,4 @@
-.App {
+/* .App {
   text-align: center;
 }
 
@@ -35,4 +35,40 @@
   to {
     transform: rotate(360deg);
   }
+} */
+
+
+.App {
+  display: flex;
+}
+
+.App .filter {
+  width: 350px;
+  margin: 20px;
+  height: 92.5vh;
+  border: solid 1px black;
+}
+
+.App .filter .filter-headers {
+  display: flex;
+  justify-content: space-between;
+}
+
+.filter-select-box {
+  gap: 15px;
+  display: flex;
+  flex-direction: column;
+  padding: 20px;
+}
+
+.report-button {
+  margin-left: 200px !important;
+}
+
+.filter-headers h1 {
+  padding-left: 20px;
+}
+
+.filter-headers  .clear-button  {
+  padding-right: 20px;
 }
