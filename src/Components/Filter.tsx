@@ -9,21 +9,12 @@ import {
   useTheme,
 } from "@mui/material";
 import React, { useEffect, useState } from "react";
-import { ICategory, IProduct } from "../utils/constants";
-
-export interface IFilterProps {
-  categories: ICategory[];
-  setCategories: React.Dispatch<React.SetStateAction<ICategory[]>>;
-  selectedCategory: ICategory;
-  setSelectedCategory: React.Dispatch<React.SetStateAction<ICategory>>;
-  categoryProducts: IProduct[];
-  setCategoryProducts: React.Dispatch<React.SetStateAction<IProduct[]>>;
-  selectedCategoryProducts: IProduct[];
-  setSelectedCategoryProducts: React.Dispatch<React.SetStateAction<IProduct[]>>;
-  isRunReportClicked: boolean;
-  setIsRunReportClicked: React.Dispatch<React.SetStateAction<boolean>>;
-  chartData?: any;
-}
+import {
+  IAppData,
+  ICategory,
+  INIT_APP_DATA,
+  IProduct,
+} from "../utils/constants";
 
 const ITEM_HEIGHT = 48;
 const ITEM_PADDING_TOP = 8;
@@ -46,7 +37,9 @@ function getStyles(name: string, personName: string[], theme: Theme) {
 }
 
 async function getCategoryData(
-  setCategories: React.Dispatch<React.SetStateAction<ICategory[]>>
+  setCategories: React.Dispatch<React.SetStateAction<ICategory[]>>,
+  getAppData: (data: IAppData) => void,
+  appData: IAppData
 ) {
   const url = "https://dummyjson.com/products/categories";
   try {
@@ -57,6 +50,7 @@ async function getCategoryData(
 
     const json = await response.json();
     setCategories(json);
+    getAppData({ ...appData, categories: json });
   } catch (error: any) {
     console.error(error.message);
   }
@@ -67,14 +61,14 @@ const getCategoryProducts = async (
   setSelectedCategory: React.Dispatch<React.SetStateAction<ICategory>>,
   setCategoryProducts: React.Dispatch<React.SetStateAction<IProduct[]>>,
   categories: ICategory[],
-  setProductName: React.Dispatch<React.SetStateAction<string[]>>
+  setProductName: React.Dispatch<React.SetStateAction<string[]>>,
+  setIsRunReportBoolean: React.Dispatch<React.SetStateAction<boolean>>
 ) => {
   const selectedCategory = categories.find((e) => e.name === category);
   const url = (selectedCategory as ICategory).url;
   setSelectedCategory(selectedCategory as ICategory);
   setProductName([]);
-  // setIsRunReportClicked(false);
-  // setSelectedCategoryProducts([]);
+  setIsRunReportBoolean(true);
   try {
     const response = await fetch(url);
     if (!response.ok) {
@@ -91,58 +85,66 @@ const getCategoryProducts = async (
 const clearFilter = (
   setSelectedCategory: React.Dispatch<React.SetStateAction<ICategory>>,
   setCategoryProducts: React.Dispatch<React.SetStateAction<IProduct[]>>,
-  setSelectedCategoryProducts: React.Dispatch<React.SetStateAction<IProduct[]>>,
   setProductName: React.Dispatch<React.SetStateAction<string[]>>,
-  setIsRunReportClicked: React.Dispatch<React.SetStateAction<boolean>>
+  setIsRunReportBoolean: React.Dispatch<React.SetStateAction<boolean>>,
+  getAppData: (data: IAppData) => void,
+  filterCategories: ICategory[]
 ) => {
   setSelectedCategory({} as ICategory);
   setCategoryProducts([]);
-  setSelectedCategoryProducts([]);
   setProductName([]);
-  setIsRunReportClicked(false);
+  setIsRunReportBoolean(false);
+  getAppData({ ...INIT_APP_DATA, categories: filterCategories });
 };
 
-const Filter = (props: IFilterProps) => {
-  const {
-    categories,
-    setCategories,
-    categoryProducts,
-    setSelectedCategory,
-    setCategoryProducts,
-    selectedCategory,
-    setSelectedCategoryProducts,
-    setIsRunReportClicked,
-    selectedCategoryProducts,
-  } = props;
-  // selectedCategory, setSelectedCategory, categoryProducts, setCategoryProducts, selectedCategoryProducts, setSelectedCategoryProducts
+const Filter = (props: {
+  getAppData: (data: IAppData) => void;
+  appData: IAppData;
+}) => {
+  const { getAppData, appData } = props;
+  const { categories, selectedCategory, selectedCategoryProducts } = appData;
   const theme = useTheme();
+
   const [productName, setProductName] = useState<string[]>(
     selectedCategoryProducts.length
       ? selectedCategoryProducts.map((prod) => prod.title)
       : []
   );
+  const [filterCategories, setFilterCategories] = useState<ICategory[]>(
+    categories.length ? categories : []
+  );
+  const [selectedFilterCategory, setSelectedFilterCategory] =
+    useState<ICategory>(
+      selectedCategory?.name ? selectedCategory : ({} as ICategory)
+    );
+  const [filterCategoryProducts, setFilterCategoryProducts] = useState<
+    IProduct[]
+  >([]);
+  const [isRunReportBoolean, setIsRunReportBoolean] = useState<boolean>(false);
+
   useEffect(() => {
-    getCategoryData(setCategories);
+    getCategoryData(setFilterCategories, getAppData, appData);
   }, []);
 
   const handleChange = (event: SelectChangeEvent<typeof productName>) => {
     const {
       target: { value },
     } = event;
-    // const selectedProducts = value === 'string' ? value.split(',').map(e => categoryProducts.find(el => el.title === e)) : (value as string[]).map(e => categoryProducts.find(el => el.title === e))
-    // setSelectedCategoryProducts(selectedProducts as IProduct[]);
-    setProductName(
-      // On autofill we get a stringified value.
-      typeof value === "string" ? value.split(",") : value
-    );
+    setProductName(typeof value === "string" ? value.split(",") : value);
+    setIsRunReportBoolean(true);
   };
 
   const onClickRunReport = () => {
-    setIsRunReportClicked(true);
     const selectedProducts = productName.map((e) =>
-      categoryProducts.find((el) => el.title === e)
+      filterCategoryProducts.find((el) => el.title === e)
     );
-    setSelectedCategoryProducts(selectedProducts as IProduct[]);
+    getAppData({
+      categories: filterCategories,
+      selectedCategory: selectedFilterCategory,
+      selectedCategoryProducts: selectedProducts as IProduct[],
+      categoryProducts: filterCategoryProducts,
+    });
+    setIsRunReportBoolean(false);
   };
 
   return (
@@ -154,11 +156,12 @@ const Filter = (props: IFilterProps) => {
           className="clear-button"
           onClick={() =>
             clearFilter(
-              setSelectedCategory,
-              setCategoryProducts,
-              setSelectedCategoryProducts,
+              setSelectedFilterCategory,
+              setFilterCategoryProducts,
               setProductName,
-              setIsRunReportClicked
+              setIsRunReportBoolean,
+              getAppData,
+              filterCategories
             )
           }
         >
@@ -171,21 +174,22 @@ const Filter = (props: IFilterProps) => {
           <Select
             labelId="category"
             id="category"
-            value={selectedCategory?.name || ""}
+            value={selectedFilterCategory?.name || ""}
             label="Category"
             onChange={(e) =>
               getCategoryProducts(
                 e.target.value as string,
-                setSelectedCategory,
-                setCategoryProducts,
-                categories,
-                setProductName
+                setSelectedFilterCategory,
+                setFilterCategoryProducts,
+                filterCategories,
+                setProductName,
+                setIsRunReportBoolean
               )
             }
             className="select-box"
             MenuProps={MenuProps}
           >
-            {categories.map((category) => {
+            {filterCategories.map((category) => {
               return (
                 <MenuItem key={category.name} value={category.name}>
                   {category.name}
@@ -205,9 +209,9 @@ const Filter = (props: IFilterProps) => {
             label="Products"
             MenuProps={MenuProps}
             className="select-box"
-            readOnly={categoryProducts.length === 0}
+            readOnly={filterCategoryProducts.length === 0}
           >
-            {categoryProducts.map((product) => (
+            {filterCategoryProducts.map((product) => (
               <MenuItem
                 key={product.id}
                 value={product.title}
@@ -222,7 +226,7 @@ const Filter = (props: IFilterProps) => {
       <Button
         variant="contained"
         className="report-button"
-        disabled={productName.length === 0}
+        disabled={!isRunReportBoolean}
         onClick={onClickRunReport}
       >
         Run Report
